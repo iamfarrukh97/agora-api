@@ -1,58 +1,65 @@
-const dotenv = require('dotenv')
+const dotenv = require("dotenv");
 const {
   RtcTokenBuilder,
   RtmTokenBuilder,
   RtcRole,
-  RtmRole
-} = require('agora-access-token')
-dotenv.config({ path: './.env' })
-const Tour = require('../models/toursModel')
+  RtmRole,
+} = require("agora-access-token");
+dotenv.config({ path: "./.env" });
+const Tour = require("../models/toursModel");
 exports.getAllTours = async (req, res) => {
   try {
+    const tours = await Tour.find();
     res.status(200).json({
-      status: 'success',
+      status: "success",
       results: tours.length,
-      data: { tours }
-    })
+      data: { tours },
+    });
   } catch (error) {
-    res.status(404).json({ status: 'fail', message: error })
+    res.status(404).json({ status: "fail", message: error });
   }
-}
-exports.getTour = async (req, res) => {
+};
+exports.createTour = async (req, res) => {
   try {
-    const tour = await Tour.findById(req.params.id)
+    const tour = await Tour.create(req.body);
     res.status(200).json({
-      status: 'success',
-      data: { tour }
-    })
+      status: "success",
+      data: tour,
+    });
   } catch (error) {
     res.status(200).json({
-      status: 'fail',
-      message: error
-    })
+      status: "fail",
+      message: error,
+    });
   }
-}
+};
 exports.createChannel = async (req, res) => {
   try {
-    const { id, title } = req.body
-    console.log('id ', id, ' title ', title)
-    const appId = process.env.appId
-    const appCertificate = process.env.appCertificate
-    const channelName = title
-    const uid = id
-    const account = id
-    const role = RtcRole.PUBLISHER
+    const { _id, tourName } = req.body;
+    const appId = process.env.appId;
+    const appCertificate = process.env.appCertificate;
+    const channelName = tourName;
+    const uid = _id;
+    const account = _id;
+    const role = RtcRole.PUBLISHER;
 
-    const expirationTimeInSeconds = 3600
+    const expirationTimeInSeconds = 3600;
 
-    const currentTimestamp = Math.floor(Date.now() / 1000)
+    const currentTimestamp = Math.floor(Date.now() / 1000);
 
-    const privilegeExpiredTs =
-      currentTimestamp + expirationTimeInSeconds
+    const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
 
     // IMPORTANT! Build token with either the uid or with the user account. Comment out the option you do not want to use below.
 
     // Build token with uid
+    const check = await Tour.findById(_id);
+    console.log("check.tourToken ", check.tourToken);
+
+    if (check.tourToken) {
+      res
+        .status(404)
+        .json({ status: "fail", message: "Tour Token Already Exists" });
+    }
     const token = RtcTokenBuilder.buildTokenWithUid(
       appId,
       appCertificate,
@@ -60,9 +67,16 @@ exports.createChannel = async (req, res) => {
       uid,
       role,
       privilegeExpiredTs
-    )
-    console.log('Token With Integer Number Uid: ' + token)
-
+    );
+    console.log("Token With Integer Number Uid: " + token);
+    const tour = await Tour.findByIdAndUpdate(
+      { _id },
+      { tourToken: token },
+      {
+        new: true,
+      }
+    );
+    console.log("tour ", tour);
     // Build token with user account
     // const tokenB = RtcTokenBuilder.buildTokenWithAccount(
     //   appID,
@@ -76,37 +90,33 @@ exports.createChannel = async (req, res) => {
     // const newTour = await Tour.create(req.body)
 
     res.status(201).json({
-      status: 'success',
-      data: { appId, channelName, token }
-    })
+      status: "success",
+      data: { tour },
+    });
   } catch (error) {
-    res.status(400).json({ status: 'fail', message: error })
+    res.status(400).json({ status: "fail", message: error });
   }
-}
+};
 exports.updateTour = async (req, res) => {
   try {
-    const tour = await Tour.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true
-      }
-    )
-    res.status(201).json({ status: 'success', data: { tour } })
+    const tour = await Tour.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+    res.status(201).json({ status: "success", data: { tour } });
   } catch (error) {
-    res.status(400).json({ status: 'fail', message: error })
+    res.status(400).json({ status: "fail", message: error });
   }
-}
+};
 
 exports.deleteTour = async (req, res) => {
   try {
-    const tour = await Tour.findByIdAndDelete(req.params.id)
-    res.status(204).json({ status: 'success', data: null })
+    const tour = await Tour.findByIdAndDelete(req.params.id);
+    res.status(204).json({ status: "success", data: null });
   } catch (error) {
-    res.status(400).json({ status: 'fail', message: error })
+    res.status(400).json({ status: "fail", message: error });
   }
-}
+};
 
 exports.getTourStats = async (req, res) => {
   try {
@@ -114,69 +124,69 @@ exports.getTourStats = async (req, res) => {
       { $match: { ratingAverage: { $gte: 4.5 } } },
       {
         $group: {
-          _id: '$difficulty',
+          _id: "$difficulty",
           numTour: { $sum: 1 },
-          numRating: { $sum: '$ratingQuantity' },
-          avgRating: { $avg: '$ratingAverage' },
+          numRating: { $sum: "$ratingQuantity" },
+          avgRating: { $avg: "$ratingAverage" },
 
-          avgPrice: { $avg: '$price' },
-          minPrice: { $min: '$price' },
-          maxPrice: { $max: '$price' }
-        }
+          avgPrice: { $avg: "$price" },
+          minPrice: { $min: "$price" },
+          maxPrice: { $max: "$price" },
+        },
       },
       {
-        $sort: { avgPrice: -1 }
-      }
-    ])
-    res.status(200).json({ status: 'success', data: { stats } })
+        $sort: { avgPrice: -1 },
+      },
+    ]);
+    res.status(200).json({ status: "success", data: { stats } });
   } catch (error) {
-    console.log('error ', error)
-    res.status(404).json({ status: 'fail', message: error })
+    console.log("error ", error);
+    res.status(404).json({ status: "fail", message: error });
   }
-}
+};
 
 exports.getMonthlyPlan = async (req, res) => {
   try {
-    const year = req.params.year * 1
+    const year = req.params.year * 1;
     const plan = await Tour.aggregate([
       {
-        $unwind: '$startDates'
+        $unwind: "$startDates",
       },
       {
         $match: {
           startDates: {
             $gte: new Date(`${year}-01-01`),
-            $lte: new Date(`${year}-12-31`)
-          }
-        }
+            $lte: new Date(`${year}-12-31`),
+          },
+        },
       },
       {
         $group: {
-          _id: { $month: '$startDates' },
+          _id: { $month: "$startDates" },
           numTourStarts: { $sum: 1 },
-          tours: { $push: '$name' }
-        }
+          tours: { $push: "$name" },
+        },
       },
       {
         $addFields: {
-          month: '$_id'
-        }
+          month: "$_id",
+        },
       },
       {
         $project: {
-          _id: 0
-        }
+          _id: 0,
+        },
       },
       {
-        $sort: { numTourStarts: -1 }
+        $sort: { numTourStarts: -1 },
       },
       {
-        $limit: 12
-      }
-    ])
-    res.status(200).json({ status: 'success', data: { plan } })
+        $limit: 12,
+      },
+    ]);
+    res.status(200).json({ status: "success", data: { plan } });
   } catch (error) {
-    console.log('error ', error)
-    res.status(404).json({ status: 'fail', message: error })
+    console.log("error ", error);
+    res.status(404).json({ status: "fail", message: error });
   }
-}
+};
