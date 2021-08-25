@@ -60,7 +60,7 @@ exports.createChannel = async (req, res) => {
       role,
       privilegeExpiredTs
     )
-    console.log('Token With UserAccount: ' + token)
+    // console.log('Token With UserAccount: ' + token)
 
     res.status(201).json({
       status: 'success',
